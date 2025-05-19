@@ -24,6 +24,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
   int? _lastDoses;
   double? _remainingAmount;
   String? _errorMessage;
+  bool _showResults = false;
 
   @override
   void dispose() {
@@ -36,33 +37,10 @@ class _CalculatorFormState extends State<CalculatorForm> {
   Future<void> _saveToHistory(String input, String result) async {
     final prefs = await SharedPreferences.getInstance();
     final history = prefs.getStringList('calc_history') ?? [];
+    // Store as a query string for simplicity (alternatively use jsonEncode)
     final entry = "input=$input&result=$result";
     history.add(entry);
     await prefs.setStringList('calc_history', history);
-  }
-
-  void _showResultCardPopup(double units, int doses, double? remainingAmount) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Theme.of(context).cardColor,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Padding(
-            padding: const EdgeInsets.all(0),
-            child: _ResultCard(
-              units: units,
-              doses: doses,
-              remainingAmount: remainingAmount,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   void _doCalculate() {
@@ -74,6 +52,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
       setState(() {
         _lastUnits = null;
         _lastDoses = null;
+        _showResults = false;
       });
       return;
     }
@@ -88,6 +67,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
         _lastUnits = null;
         _lastDoses = null;
         _remainingAmount = null;
+        _showResults = false;
       });
       return;
     }
@@ -98,6 +78,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
         _lastUnits = null;
         _lastDoses = null;
         _remainingAmount = null;
+        _showResults = false;
       });
       return;
     }
@@ -108,6 +89,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
         _lastUnits = null;
         _lastDoses = null;
         _remainingAmount = null;
+        _showResults = false;
       });
       return;
     }
@@ -118,6 +100,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
         _lastUnits = null;
         _lastDoses = null;
         _remainingAmount = null;
+        _showResults = false;
       });
       return;
     }
@@ -146,6 +129,7 @@ class _CalculatorFormState extends State<CalculatorForm> {
       _lastUnits = units;
       _lastDoses = dosesAvailable;
       _remainingAmount = remainingInMg;
+      _showResults = true;
     });
 
     widget.onCalculate?.call(units, dosesAvailable);
@@ -156,13 +140,11 @@ class _CalculatorFormState extends State<CalculatorForm> {
     final resultSummary =
         'Units: ${units.toStringAsFixed(2)}, Doses: $dosesAvailable';
     _saveToHistory(inputSummary, resultSummary);
-
-    // Show result popup
-    _showResultCardPopup(units, dosesAvailable, remainingInMg);
   }
 
   void _useHistoryEntry(Map<String, dynamic> entry) {
     final input = entry['input'] ?? "";
+    // Try to parse out fields (assuming the summary format)
     final vialReg = RegExp(r'Vial: ([\d\.]+) mg');
     final diluentReg = RegExp(r'Diluent: ([\d\.]+) ml');
     final doseReg = RegExp(r'Dose: ([\d\.]+) (mcg|mg)');
@@ -402,6 +384,15 @@ class _CalculatorFormState extends State<CalculatorForm> {
                 child: const Text("Calculate"),
               ),
             ),
+            if (_showResults && _lastUnits != null && _lastDoses != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: _ResultCard(
+                  units: _lastUnits!,
+                  doses: _lastDoses!,
+                  remainingAmount: _remainingAmount,
+                ),
+              ),
           ],
         ),
       ),
