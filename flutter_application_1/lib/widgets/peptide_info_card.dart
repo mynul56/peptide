@@ -25,7 +25,7 @@ class _PeptideInfoCardState extends State<PeptideInfoCard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFF32BACF), size: 20),
+          Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -33,18 +33,19 @@ class _PeptideInfoCardState extends State<PeptideInfoCard> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     fontFamily: "Geist",
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   content,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
-                    color: Color(0xFF6B7280),
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                     fontFamily: "Geist",
                   ),
                 ),
@@ -61,22 +62,26 @@ class _PeptideInfoCardState extends State<PeptideInfoCard> {
     return Card(
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFFE3E9F5))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: const [
-                Icon(Icons.format_list_bulleted, color: Color(0xFF32BACF)),
-                SizedBox(width: 7),
+              children: [
+                Icon(Icons.format_list_bulleted, color: Theme.of(context).colorScheme.secondary),
+                const SizedBox(width: 7),
                 Text(
                   'Peptide Information',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                     fontFamily: "Geist",
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 )
               ],

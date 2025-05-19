@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/calculator_form.dart';
 import '../widgets/peptide_info_card.dart';
+import '../widgets/theme_toggle_button.dart';
+import '../widgets/history_panel.dart'; // Add this import
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   final bool darkMode;
 
@@ -13,51 +16,100 @@ class HomeScreen extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  // Controller for showing History panel
+  void _openHistoryPanel() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const HistoryPanel(),
+    );
+  }
+
+  // For CalculatorForm to trigger refresh on history add/copy
+  void _onHistoryUsed(Map<String, dynamic> entry) {
+    // This callback can be used to repopulate CalculatorForm inputs, if needed.
+    // For more integration, consider using a state management solution.
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(
+            Icons.history,
+            color: Theme.of(context).iconTheme.color,
+            size: Theme.of(context).iconTheme.size,
+          ),
+          tooltip: "History",
+          onPressed: _openHistoryPanel,
+        ),
+        actions: [
+          ThemeToggleButton(
+            darkMode: widget.darkMode,
+            onToggleTheme: widget.onToggleTheme,
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 8),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withOpacity(0.2),
+                        ),
                       ),
                       padding: const EdgeInsets.symmetric(
                           vertical: 24, horizontal: 16),
-                      child: const Column(
+                      child: Column(
                         children: [
                           Text(
-                            "Peptide Pal",
+                            'Peptide Pal',
                             style: TextStyle(
-                              fontSize: 28,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                              fontFamily: "Geist", // Use Geist or closest match
+                              color:
+                                  Theme.of(context).colorScheme.onSurface,
+                              fontFamily: "Geist",
                             ),
                           ),
-                          SizedBox(height: 6),
+                          const SizedBox(height: 6),
                           Text(
                             "Your friendly peptide calculator",
                             style: TextStyle(
                               fontSize: 16,
-                              color: Color(0xFF7B7B7B),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.7),
                               fontWeight: FontWeight.w500,
                               fontFamily: "Geist",
                             ),
                           ),
-                          SizedBox(height: 18),
-                          CalculatorForm(),
-                          SizedBox(height: 18),
+                          const SizedBox(height: 18),
+                          CalculatorForm(
+                            onHistoryUsed: _onHistoryUsed, // for future use
+                          ),
+                          const SizedBox(height: 18),
                           PeptideInfoCard(),
                         ],
                       ),

@@ -12,6 +12,7 @@ dependencies:
   flutter_svg: ^2.0.10
   google_fonts: ^6.2.1
   another_flushbar: ^1.12.29
+  shared_preferences: ^2.5.3
 
 dev_dependencies:
   flutter_test:

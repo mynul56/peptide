@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CalculatorForm extends StatefulWidget {
   final void Function(double unitsToDraw, int dosesPerVial)? onCalculate;
+  final void Function(Map<String, dynamic> historyEntry)? onHistoryUsed;
 
-  const CalculatorForm({super.key, this.onCalculate});
+  const CalculatorForm({
+    Key? key,
+    this.onCalculate,
+    this.onHistoryUsed,
+  }) : super(key: key);
 
   @override
   State<CalculatorForm> createState() => _CalculatorFormState();
@@ -18,7 +24,46 @@ class _CalculatorFormState extends State<CalculatorForm> {
   int? _lastDoses;
   double? _remainingAmount;
   String? _errorMessage;
-  bool _showResults = false;
+
+  @override
+  void dispose() {
+    _vialController.dispose();
+    _diluentController.dispose();
+    _doseController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveToHistory(String input, String result) async {
+    final prefs = await SharedPreferences.getInstance();
+    final history = prefs.getStringList('calc_history') ?? [];
+    final entry = "input=$input&result=$result";
+    history.add(entry);
+    await prefs.setStringList('calc_history', history);
+  }
+
+  void _showResultCardPopup(double units, int doses, double? remainingAmount) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Theme.of(context).cardColor,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 400),
+          child: Padding(
+            padding: const EdgeInsets.all(0),
+            child: _ResultCard(
+              units: units,
+              doses: doses,
+              remainingAmount: remainingAmount,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   void _doCalculate() {
     final vialText = _vialController.text.trim();
@@ -77,6 +122,10 @@ class _CalculatorFormState extends State<CalculatorForm> {
       return;
     }
 
+    setState(() {
+      _errorMessage = null;
+    });
+
     // Convert mcg to mg if needed
     if (_doseUnit == "mcg") {
       desiredDose = desiredDose / 1000;
@@ -94,197 +143,268 @@ class _CalculatorFormState extends State<CalculatorForm> {
     final remainingInMg = totalDoseInMg - usedDoseInMg;
 
     setState(() {
-      _errorMessage = null;
       _lastUnits = units;
       _lastDoses = dosesAvailable;
       _remainingAmount = remainingInMg;
-      _showResults = true;
     });
 
     widget.onCalculate?.call(units, dosesAvailable);
+
+    // Save calculation to history
+    final inputSummary =
+        'Vial: $vialMg mg, Diluent: $diluentMl ml, Dose: $doseText $_doseUnit';
+    final resultSummary =
+        'Units: ${units.toStringAsFixed(2)}, Doses: $dosesAvailable';
+    _saveToHistory(inputSummary, resultSummary);
+
+    // Show result popup
+    _showResultCardPopup(units, dosesAvailable, remainingInMg);
+  }
+
+  void _useHistoryEntry(Map<String, dynamic> entry) {
+    final input = entry['input'] ?? "";
+    final vialReg = RegExp(r'Vial: ([\d\.]+) mg');
+    final diluentReg = RegExp(r'Diluent: ([\d\.]+) ml');
+    final doseReg = RegExp(r'Dose: ([\d\.]+) (mcg|mg)');
+
+    final vialMatch = vialReg.firstMatch(input);
+    final diluentMatch = diluentReg.firstMatch(input);
+    final doseMatch = doseReg.firstMatch(input);
+
+    if (vialMatch != null) {
+      _vialController.text = vialMatch.group(1) ?? '';
+    }
+    if (diluentMatch != null) {
+      _diluentController.text = diluentMatch.group(1) ?? '';
+    }
+    if (doseMatch != null) {
+      _doseController.text = doseMatch.group(1) ?? '';
+      setState(() {
+        _doseUnit = doseMatch.group(2) ?? "mcg";
+      });
+    }
+    _doCalculate();
+    widget.onHistoryUsed?.call(entry);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFE3E9F5)),
-          ),
-          margin: EdgeInsets.zero,
-          elevation: 0,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = Theme.of(context).cardColor;
+    final borderColor =
+        Theme.of(context).colorScheme.primary.withOpacity(0.2);
+    final borderRadius = BorderRadius.circular(12);
+    final fieldFillColor = isDark ? const Color(0xFF232526) : Colors.white;
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: borderColor, width: 1.5),
+    );
+
+    return Card(
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: borderColor),
+      ),
+      color: backgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: const [
-                    Icon(Icons.balance, color: Color(0xFF32BACF)),
-                    SizedBox(width: 7),
-                    Text(
-                      'Calculator',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: "Geist",
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                if (_errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(
-                        color: Colors.red,
-                        fontSize: 14,
-                        fontFamily: "Geist",
-                      ),
-                    ),
+                Icon(Icons.balance,
+                    color: Theme.of(context).colorScheme.secondary),
+                const SizedBox(width: 7),
+                Text(
+                  'Calculator',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: "Geist",
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
-                TextField(
-                  controller: _vialController,
-                  decoration: const InputDecoration(
-                    labelText: "Vial Strength (mg)",
-                    hintText: "e.g., 10 (0-1000 mg)",
-                    prefixIcon: Icon(Icons.science_outlined, color: Color(0xFF32BACF)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Color(0xFFE3E9F5)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Color(0xFF32BACF)),
-                    ),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _diluentController,
-                  decoration: const InputDecoration(
-                    labelText: "Diluent Amount (ml)",
-                    hintText: "e.g., 2 (0-100 ml)",
-                    prefixIcon: Icon(Icons.local_fire_department_outlined, color: Color(0xFF32BACF)),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Color(0xFFE3E9F5)),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                      borderSide: BorderSide(color: Color(0xFF32BACF)),
-                    ),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
+              ],
+            ),
+            const SizedBox(height: 14),
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 14,
+                    fontFamily: "Geist",
                   ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 4,
-                      child: TextField(
-                        controller: _doseController,
-                        decoration: const InputDecoration(
-                          labelText: "Desired Dose",
-                          hintText: "e.g., 250",
-                          prefixIcon: Icon(Icons.edit_road_outlined, color: Color(0xFF32BACF)),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide: BorderSide(color: Color(0xFFE3E9F5)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide: BorderSide(color: Color(0xFF32BACF)),
-                          ),
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        keyboardType: TextInputType.numberWithOptions(decimal: true),
-                        onChanged: (_) => _doCalculate(),
+              ),
+            TextField(
+              controller: _vialController,
+              decoration: InputDecoration(
+                labelText: "Vial Strength (mg)",
+                hintText: "e.g., 10 (0-1000 mg)",
+                prefixIcon: const Icon(Icons.science_outlined,
+                    color: Color(0xFF32BACF)),
+                border: fieldBorder,
+                enabledBorder: fieldBorder,
+                focusedBorder: fieldBorder.copyWith(
+                  borderSide:
+                      const BorderSide(color: Color(0xFF32BACF), width: 2),
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: fieldFillColor,
+                labelStyle: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _diluentController,
+              decoration: InputDecoration(
+                labelText: "Diluent Amount (ml)",
+                hintText: "e.g., 2 (0-100 ml)",
+                prefixIcon: const Icon(Icons.local_fire_department_outlined,
+                    color: Color(0xFF32BACF)),
+                border: fieldBorder,
+                enabledBorder: fieldBorder,
+                focusedBorder: fieldBorder.copyWith(
+                  borderSide:
+                      const BorderSide(color: Color(0xFF32BACF), width: 2),
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: fieldFillColor,
+                labelStyle: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black87,
+                ),
+                hintStyle: TextStyle(
+                  color: isDark ? Colors.white38 : Colors.black38,
+                ),
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: TextField(
+                    controller: _doseController,
+                    decoration: InputDecoration(
+                      labelText: "Desired Dose",
+                      hintText: "e.g., 250",
+                      prefixIcon: const Icon(Icons.edit_road_outlined,
+                          color: Color(0xFF32BACF)),
+                      border: fieldBorder,
+                      enabledBorder: fieldBorder,
+                      focusedBorder: fieldBorder.copyWith(
+                        borderSide: const BorderSide(
+                            color: Color(0xFF32BACF), width: 2),
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: fieldFillColor,
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                      hintStyle: TextStyle(
+                        color: isDark ? Colors.white38 : Colors.black38,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      flex: 2,
-                      child: DropdownButtonFormField<String>(
-                        value: _doseUnit,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide: BorderSide(color: Color(0xFFE3E9F5)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
-                            borderSide: BorderSide(color: Color(0xFF32BACF)),
-                          ),
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        ),
-                        items: const [
-                          DropdownMenuItem(child: Text("mcg"), value: "mcg"),
-                          DropdownMenuItem(child: Text("mg"), value: "mg"),
-                        ],
-                        onChanged: (v) {
-                          if (v != null) {
-                            setState(() {
-                              _doseUnit = v;
-                            });
-                            _doCalculate();
-                          }
-                        },
-                      ),
-                    )
-                  ],
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => _doCalculate(),
+                    style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF32BACF),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, fontFamily: "Geist"),
-                      shadowColor: Colors.transparent,
-                      elevation: 0,
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: DropdownButtonFormField<String>(
+                    value: _doseUnit,
+                    decoration: InputDecoration(
+                      border: fieldBorder,
+                      enabledBorder: fieldBorder,
+                      focusedBorder: fieldBorder.copyWith(
+                        borderSide: const BorderSide(
+                            color: Color(0xFF32BACF), width: 2),
+                      ),
+                      isDense: true,
+                      filled: true,
+                      fillColor: fieldFillColor,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
                     ),
-                    onPressed: _doCalculate,
-                    child: const Text("Calculate"),
+                    dropdownColor: fieldFillColor,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: "Geist",
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        child: Text("mcg"),
+                        value: "mcg",
+                      ),
+                      DropdownMenuItem(
+                        child: Text("mg"),
+                        value: "mg",
+                      ),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() {
+                          _doseUnit = v;
+                        });
+                        _doCalculate();
+                      }
+                    },
                   ),
                 )
               ],
             ),
-          ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF32BACF),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  textStyle: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: "Geist"),
+                  shadowColor: Colors.transparent,
+                  elevation: 0,
+                ),
+                onPressed: _doCalculate,
+                child: const Text("Calculate"),
+              ),
+            ),
+          ],
         ),
-
-        const SizedBox(height: 18),
-        if (_showResults && _lastUnits != null && _lastDoses != null)
-          _ResultCard(
-            units: _lastUnits!,
-            doses: _lastDoses!,
-            remainingAmount: _remainingAmount,
-          ),
-      ],
+      ),
     );
   }
 }
@@ -303,43 +423,54 @@ class _ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final int unitsInt = units.round();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Color(0xFFE3E9F5)),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
       ),
       elevation: 0,
       margin: EdgeInsets.zero,
+      color: Theme.of(context).cardColor,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
         child: Column(
           children: [
             Row(
-              children: const [
-                Icon(Icons.medical_services_rounded, color: Color(0xFF32BACF)),
-                SizedBox(width: 7),
+              children: [
+                Icon(Icons.medical_services_rounded,
+                    color: Theme.of(context).colorScheme.secondary),
+                const SizedBox(width: 7),
                 Text(
-                      'Results',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: "Geist",
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    )
+                  'Results',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: "Geist",
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 18),
             Center(
               child: RichText(
                 text: TextSpan(
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
-                    color: Colors.black,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white
+                        : const Color(0xFF1A1A1A),
                     fontFamily: "Geist",
                   ),
                   children: [
-                    const TextSpan(text: "Inject: "),
+                    TextSpan(
+                      text: "Inject: ",
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                      ),
+                    ),
                     TextSpan(
                       text: "$unitsInt",
                       style: const TextStyle(
@@ -348,7 +479,12 @@ class _ResultCard extends StatelessWidget {
                         fontSize: 22,
                       ),
                     ),
-                    const TextSpan(text: " units on a 100-unit syringe."),
+                    TextSpan(
+                      text: " units on a 100-unit syringe.",
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF1A1A1A),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -359,9 +495,11 @@ class _ResultCard extends StatelessWidget {
             Center(
               child: RichText(
                 text: TextSpan(
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
-                    color: Color(0xFF727272),
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : const Color(0xFF727272),
                     fontFamily: "Geist",
                   ),
                   children: [
@@ -374,27 +512,30 @@ class _ResultCard extends StatelessWidget {
                         fontSize: 20,
                       ),
                     ),
-                    const TextSpan(text: " full doses per vial."),
+                    TextSpan(text: " full doses per vial."),
                   ],
                 ),
               ),
             ),
-            if (remainingAmount != null) ...[              
+            if (remainingAmount != null) ...[
               const SizedBox(height: 10),
               const Divider(),
               const SizedBox(height: 10),
               Center(
                 child: RichText(
                   text: TextSpan(
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
-                      color: Color(0xFF727272),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white70
+                          : const Color(0xFF727272),
                       fontFamily: "Geist",
                     ),
                     children: [
                       const TextSpan(text: "Remaining Amount: "),
                       TextSpan(
-                        text: "${remainingAmount?.toStringAsFixed(2) ?? '0.00'} mg",
+                        text:
+                            "${remainingAmount?.toStringAsFixed(2) ?? '0.00'} mg",
                         style: const TextStyle(
                           color: Color(0xFF32BACF),
                           fontWeight: FontWeight.bold,
@@ -423,7 +564,6 @@ class _SyringeImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The filled portion is proportional to units/100
     final double fillLevel = (units.clamp(0, 100)) / 100.0;
     return Column(
       children: [
@@ -456,7 +596,8 @@ class _SyringeImage extends StatelessWidget {
                   width: 44,
                   decoration: const BoxDecoration(
                     color: Color(0xFF32BACF),
-                    borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+                    borderRadius:
+                        BorderRadius.vertical(bottom: Radius.circular(8)),
                   ),
                 ),
               ),
@@ -467,95 +608,14 @@ class _SyringeImage extends StatelessWidget {
         Text(
           "$units Units",
           style: const TextStyle(
-              color: Color(0xFF32BACF), fontWeight: FontWeight.bold, fontSize: 16, fontFamily: "Geist"),
+              color: Color(0xFF32BACF),
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              fontFamily: "Geist"),
         ),
       ],
     );
   }
-}
-
-void _showResultBottomSheet(BuildContext context, double units, int doses, double? remainingAmount) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    builder: (context) => TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      tween: Tween(begin: 1.0, end: 0.0),
-      builder: (context, value, child) => Transform.translate(
-        offset: Offset(0, 100 * value),
-        child: child,
-      ),
-      child: Container(
-        margin: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF32BACF).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.check_circle_rounded,
-                          color: Color(0xFF32BACF),
-                          size: 28,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'Calculation Complete',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: "Geist",
-                          color: Color(0xFF1A1A1A),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  _ResultCard(
-                    units: units,
-                    doses: doses,
-                    remainingAmount: remainingAmount,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
 }
 
 class _SyringeTicksPainter extends CustomPainter {
@@ -564,7 +624,6 @@ class _SyringeTicksPainter extends CustomPainter {
     final paint = Paint()
       ..color = const Color(0xFFB3B3B3)
       ..strokeWidth = 1.2;
-    // Draw horizontal ticks (10 total)
     for (int i = 1; i < 10; i++) {
       final y = size.height * i / 10;
       canvas.drawLine(Offset(8, y), Offset(size.width - 8, y), paint);
