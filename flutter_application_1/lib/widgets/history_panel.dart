@@ -31,6 +31,17 @@ class _HistoryPanelState extends State<HistoryPanel> {
     });
   }
 
+  Future<void> _clearHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('calc_history');
+    setState(() {
+      history.clear();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("History cleared")),
+    );
+  }
+
   void _copyResult(String result) {
     Clipboard.setData(ClipboardData(text: result));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -51,7 +62,8 @@ class _HistoryPanelState extends State<HistoryPanel> {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.1),
+              color: Colors.black
+                  .withOpacity(theme.brightness == Brightness.dark ? 0.3 : 0.1),
               blurRadius: 12,
               offset: const Offset(0, -2),
             )
@@ -68,14 +80,26 @@ class _HistoryPanelState extends State<HistoryPanel> {
                 borderRadius: BorderRadius.circular(3),
               ),
             ),
-            Text(
-              'History',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface,
-                fontFamily: "Geist",
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'History',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    fontFamily: "Geist",
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.delete_forever),
+                  tooltip: 'Clear history',
+                  onPressed: history.isEmpty ? null : _clearHistory,
+                  color: theme.colorScheme.error,
+                ),
+              ],
             ),
             const Divider(height: 18),
             Expanded(
