@@ -13,6 +13,7 @@ dependencies:
   google_fonts: ^6.2.1
   another_flushbar: ^1.12.29
   shared_preferences: ^2.5.3
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
