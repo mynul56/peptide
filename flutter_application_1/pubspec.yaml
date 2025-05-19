@@ -1,0 +1,24 @@
+name: peptide_pal
+description: "Calculate your peptide dosages easily. Flutter mobile app clone of the web app."
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.0.0
+  flutter_svg: ^2.0.10
+  google_fonts: ^6.2.1
+  another_flushbar: ^1.12.29
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
