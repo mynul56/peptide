@@ -18,6 +18,7 @@ A fast, responsive, and cross-platform **Flutter** app designed to provide preci
 - 📱 **Responsive UI**: Seamless experience on all screen sizes and devices.  
 - 🌍 **Offline Access**: Core reference data available without an internet connection.  
 
+![Uploading Peptide Pal.jpg…]()
 
 
 ## 🛠 Tech Stack
