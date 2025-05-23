@@ -30,7 +30,7 @@ class AppTheme {
             fontSize: 20,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 4,
           shape: RoundedRectangleBorder(
@@ -80,7 +80,7 @@ class AppTheme {
             fontSize: 20,
           ),
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: const Color(0xFF232526),
           elevation: 2,
           shadowColor: Colors.black54,
