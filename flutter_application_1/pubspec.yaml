@@ -1,6 +1,6 @@
 name: peptide_pal
 description: "Calculate your peptide dosages easily. Flutter mobile app clone of the web app."
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
