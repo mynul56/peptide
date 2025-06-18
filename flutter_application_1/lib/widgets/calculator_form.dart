@@ -142,39 +142,11 @@ class _CalculatorFormState extends State<CalculatorForm> {
     _saveToHistory(inputSummary, resultSummary);
   }
 
-  void _useHistoryEntry(Map<String, dynamic> entry) {
-    final input = entry['input'] ?? "";
-    // Try to parse out fields (assuming the summary format)
-    final vialReg = RegExp(r'Vial: ([\d\.]+) mg');
-    final diluentReg = RegExp(r'Diluent: ([\d\.]+) ml');
-    final doseReg = RegExp(r'Dose: ([\d\.]+) (mcg|mg)');
-
-    final vialMatch = vialReg.firstMatch(input);
-    final diluentMatch = diluentReg.firstMatch(input);
-    final doseMatch = doseReg.firstMatch(input);
-
-    if (vialMatch != null) {
-      _vialController.text = vialMatch.group(1) ?? '';
-    }
-    if (diluentMatch != null) {
-      _diluentController.text = diluentMatch.group(1) ?? '';
-    }
-    if (doseMatch != null) {
-      _doseController.text = doseMatch.group(1) ?? '';
-      setState(() {
-        _doseUnit = doseMatch.group(2) ?? "mcg";
-      });
-    }
-    _doCalculate();
-    widget.onHistoryUsed?.call(entry);
-  }
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final backgroundColor = Theme.of(context).cardColor;
-    final borderColor =
-        Theme.of(context).colorScheme.primary.withOpacity(0.2);
+    final borderColor = Theme.of(context).colorScheme.primary.withOpacity(0.2);
     final borderRadius = BorderRadius.circular(12);
     final fieldFillColor = isDark ? const Color(0xFF232526) : Colors.white;
     final fieldBorder = OutlineInputBorder(
